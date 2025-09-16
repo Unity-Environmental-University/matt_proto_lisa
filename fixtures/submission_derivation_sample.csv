@@ -1,0 +1,11 @@
+id,assignment_id,course_id,user_id,submitted_at,graded_at,workflow_state,submission_type,due_at,attempt,attachments,no_submission
+1,101,1001,5001,2025-08-20T12:00:00Z,,submitted,online_upload,2025-08-19T23:59:59Z,1,,
+2,102,1001,5002,,2025-08-20T10:00:00Z,graded,online_upload,2025-08-19T23:59:59Z,,,
+3,103,1002,5003,,2025-08-20T09:00:00Z,graded,external_tool,2025-08-19T23:59:59Z,1,,
+4,104,1002,5004,,,,,2025-08-19T23:59:59Z,,,true
+5,105,1003,5005,,,unsubmitted,online_url,2025-08-19T23:59:59Z,1,,
+6,106,1003,5006,,2025-08-21T08:00:00Z,graded,online_upload,2025-08-19T23:59:59Z,,, 
+7,107,1004,5007,2025-08-19T20:00:00Z,,submitted,online_upload,2025-08-19T23:59:59Z,,,
+8,108,1004,5008,2025-08-21T01:00:00Z,,submitted,online_upload,2025-08-19T23:59:59Z,,,
+9,109,1005,5009,,,,external_tool,2025-08-19T23:59:59Z,,, 
+10,110,1005,5010,,,unknown,,2025-08-19T23:59:59Z,,,
