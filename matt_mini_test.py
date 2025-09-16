@@ -7,6 +7,7 @@ from matt_test_dap import download_table_from_dap
 from matt_count_json import collect_2025_records
 import difflib  # for closest name matching
 import numpy as np
+from helpers.derivations import derive_submission
 
 # TODO also needs to be added to git and set up with a gitignore
 # TODO can make it technically fully functional but bad by pulling DAP data & creating csvs in this file
@@ -151,8 +152,8 @@ async def main(): # TODO make this async since Ill be calling an async function
 
     ## either way, we need to load our csv's as dfs
     users_df = pd.read_csv(users_csv)
-    enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[16]) # force column 14 to string and 15 to date
-    submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string"})    # TODO <unset> row is strange, seems user id was cut off - might just be csv display weirdness
+    enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[16])  # keep id as string, dates parsed
+    submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string"})  # IDs as strings; timestamps handled in derivation
     terms_df = pd.read_csv(enrollment_terms_csv)
     courses_df = pd.read_csv(courses_csv)
 
@@ -192,11 +193,25 @@ async def main(): # TODO make this async since Ill be calling an async function
     if submissions_in_courses.empty:
         print("no matching courses found")
     else:
+        # Derive submitted_at classification and lateness in-place (transparent, no guessing)
+        def _apply_derivation(row):
+            d = derive_submission(row.to_dict(), due_at=row.get('due_at'))
+            # flatten datetime to ISO for CSV
+            ts = d['derived_submitted_at']
+            d['derived_submitted_at'] = ts.isoformat() if ts else None
+            return pd.Series(d)
+
+        derived = submissions_in_courses.apply(_apply_derivation, axis=1)
+        output_df = pd.concat([submissions_in_courses.reset_index(drop=True), derived], axis=1)
+
+        # quick sanity: counts by classification
+        print("Classification counts:\n", output_df['classification_source'].value_counts(dropna=False).to_string())
+
         result_folder = "resulting_csv"
         os.makedirs(result_folder, exist_ok=True)
         result = os.path.join(result_folder, "lisa_test_report.csv")
-        submissions_in_courses.to_csv(result, index=False)
-        print(submissions_in_courses)
+        output_df.to_csv(result, index=False)
+        print(f"Saved {len(output_df)} rows to {result}")
 
 
 
