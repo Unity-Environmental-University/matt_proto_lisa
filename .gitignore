@@ -1,0 +1,8 @@
+*.env
+.env
+resulting_csv/
+table_2025_csvs/
+table_downloads/
+__init__.py
+.idea/
+__pycache__/
