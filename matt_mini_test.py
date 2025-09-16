@@ -7,7 +7,7 @@ from matt_test_dap import download_table_from_dap
 from matt_count_json import collect_2025_records
 import difflib  # for closest name matching
 import numpy as np
-from helpers.derivations import derive_submission
+from helpers.derivations import derive_submission  # [BRO NOTE] Adds transparent submitted_at classification.
 
 # TODO also needs to be added to git and set up with a gitignore
 # TODO can make it technically fully functional but bad by pulling DAP data & creating csvs in this file
@@ -152,8 +152,8 @@ async def main(): # TODO make this async since Ill be calling an async function
 
     ## either way, we need to load our csv's as dfs
     users_df = pd.read_csv(users_csv)
-    enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[16])  # keep id as string, dates parsed
-    submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string"})  # IDs as strings; timestamps handled in derivation
+    enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[16])  # [BRO NOTE] Keep IDs as strings; parse dates.
+    submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string"})  # [BRO NOTE] Timestamps handled in derivation.
     terms_df = pd.read_csv(enrollment_terms_csv)
     courses_df = pd.read_csv(courses_csv)
 
@@ -193,7 +193,7 @@ async def main(): # TODO make this async since Ill be calling an async function
     if submissions_in_courses.empty:
         print("no matching courses found")
     else:
-        # Derive submitted_at classification and lateness in-place (transparent, no guessing)
+        # [BRO NOTE] Derive submitted_at classification and lateness in-place (transparent, no guessing)
         def _apply_derivation(row):
             d = derive_submission(row.to_dict(), due_at=row.get('due_at'))
             # flatten datetime to ISO for CSV
@@ -204,7 +204,7 @@ async def main(): # TODO make this async since Ill be calling an async function
         derived = submissions_in_courses.apply(_apply_derivation, axis=1)
         output_df = pd.concat([submissions_in_courses.reset_index(drop=True), derived], axis=1)
 
-        # quick sanity: counts by classification
+        # [BRO NOTE] Quick sanity: counts by classification
         print("Classification counts:\n", output_df['classification_source'].value_counts(dropna=False).to_string())
 
         result_folder = "resulting_csv"

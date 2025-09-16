@@ -3,13 +3,14 @@ from math import ceil
 from typing import Any, Dict, Optional
 
 
+# [BRO NOTE] This helper is intentionally minimal and conservative.
+# It adds transparent, auditable fields without changing your flow.
 RULES_VERSION = 1
 
 
 def _to_dt_utc(value: Optional[str]) -> Optional[datetime]:
-    """Parse ISO-like timestamp to aware UTC datetime. Returns None on failure.
-
-    Expect strings like '2025-08-21T12:34:56Z' or with timezone. Naive treated as UTC.
+    """[BRO NOTE] Parse ISO-like timestamp to aware UTC datetime.
+    Returns None on failure. Naive times are treated as UTC.
     """
     if not value:
         return None
@@ -26,7 +27,7 @@ def _to_dt_utc(value: Optional[str]) -> Optional[datetime]:
 
 def derive_submission(row: Dict[str, Any], *, due_at: Optional[str] = None,
                       assignment_flags: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """Derive submitted_at classification + lateness with minimal guessing.
+    """[BRO NOTE] Derive submitted_at classification + lateness with minimal guessing.
 
     Inputs expected in row (use what you have):
     - submitted_at, graded_at, workflow_state, submission_type, attempt/attachments (optional)
@@ -93,4 +94,3 @@ def derive_submission(row: Dict[str, Any], *, due_at: Optional[str] = None,
         'days_late': days_late,
         'rules_version': RULES_VERSION,
     }
-
