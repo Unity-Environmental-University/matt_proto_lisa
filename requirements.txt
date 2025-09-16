@@ -1,0 +1,3 @@
+pandas
+instructure-dap-client
+python-dotenv
