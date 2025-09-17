@@ -67,11 +67,13 @@ def filter_courses_by_term(enrollment_term_id, course_ids, courses_df):
     for i in range(len(course_ids)):
         filter_i = courses_df[courses_df["id"] == course_ids[i]].copy()
         filtered_courses_df = pd.concat([filtered_courses_df, filter_i], ignore_index=True)
-    print((filtered_courses_df))
+    # print("here is courses dataframe filtered only by courses they teach")
+    # print(filtered_courses_df)
 
-    filtered_courses_etids = filtered_courses_df[courses_df["enrollment_term_id"] == enrollment_term_id].copy()
+    filtered_courses_etids = filtered_courses_df[filtered_courses_df["enrollment_term_id"] == enrollment_term_id].copy()
     new_courselist = filtered_courses_etids["id"].tolist()
-    print(len(new_courselist))
+   # print("here is fancy new courselist", new_courselist)
+    #print(len(new_courselist))
 
     # course_ids_np = np.array(course_ids, dtype=np.int64)
     # filtered_courses = courses_df.query(
@@ -88,6 +90,22 @@ def filter_courses_by_term(enrollment_term_id, course_ids, courses_df):
 
     return new_courselist
 
+def make_pretty_csv(base_df, columns_to_add, columns_to_drop, output_csv):
+    pretty_df = base_df.drop(columns_to_drop, axis=1, inplace=False)
+    # TODO turn columns_to_add into a dict? - note there has to be choices on columns to add
+    # TODO so in my config or whatever have a comment listing all options for columns_to_add and columns_to_drop
+
+    ## columns_to_add options
+    # instructor_name (given / grab from users during id lookup)
+    # student_name (id is in submissions/base_df -> grab from users (TODO write func to grab name using id from users?)
+    # term_name (given / grab from enrollment_terms during id lookup or write func)
+    # course_name (course_id is in submissions, I can just grab it and lookup name in courses) TODO issue - this func might need access to all dfs? Unless I grab all potentially needed info beforehand
+    # ? enrollment status is workflow in enrollments
+
+
+    # for column in columns_to_add
+    #   add_column(df, column) -> need to make function with a bunch of ifs now to do that? TODO no make a dict with each possible addition and its assoced add func
+
 
 # users = gather_user_ids_from_name("Richard Gray") # TODO assuming this has 1 entry, might want to force it to
 # print(users)
@@ -98,11 +116,21 @@ def filter_courses_by_term(enrollment_term_id, course_ids, courses_df):
 # print(len(submissions_df))
 
 async def main(): # TODO make this async since Ill be calling an async function
-    # if len(sys.argv) != 2:
-    #     print("""Usage: python3 matt_mini_test.py 'Instructor Name'""")
-    #     sys.exit(1)     # exit if teacher name not supplied
+    if len(sys.argv) != 3:
+        print("""Usage: python3 matt_mini_test.py 'Instructor Name' 'TermName' """)
+        sys.exit(1)     # exit if teacher name not supplied
+    # TODO first thing we do is check to see if we need new snapshot and delete table_downloads if we do
+    # can just put last_date_of_access in an access_log file/folder whatever
+    ## test stuff
+    # instructor_name = "Catherine White"
+    # # term_name = "DE5W05.19.25"      # TODO add option to not give term name? also course 4195124 should have enrollment id 17895
     #
-    # instructor_name = sys.argv[1]
+    # # instructor_name = "Kennady Brinley"
+    # term_name = "DE5W02.24.25"  # TODO Print id to check - should be 17895
+    ## test stuff
+
+    instructor_name = sys.argv[1]
+    term_name = sys.argv[2]
 
     download_folder = "table_downloads"
     csv_folder = "table_2025_csvs"
@@ -122,9 +150,8 @@ async def main(): # TODO make this async since Ill be calling an async function
     os.makedirs(download_folder, exist_ok=True)
     os.makedirs(csv_folder, exist_ok=True)
     # download DAP data (function in matt_test_dap)
-    # TODO 1 at a time, ie download users, then process it to csv, then do submissions & process, etc - ONLY if I decide to delete & grab new snapshot each time
     if not os.path.exists(users_folder):   # only download if the data isn't there - directory is made inside dl func
-        await download_table_from_dap("users", users_folder)  # TODO pickup here!!!!!!! need to modify matt_count_json next to accomodate the extra folder level and delete things after. Also check DAP snapshots to see if we can avoid downloading everything? Also, you'll need the space on disk anyway? But taking a new snapshot will keep it updated! lol or dont delete and practice the incremental update from docs
+        await download_table_from_dap("users", users_folder)
     if not os.path.exists(enrollments_folder):
         await download_table_from_dap("enrollments", enrollments_folder)
     if not os.path.exists(enrollment_terms_folder):
@@ -133,7 +160,6 @@ async def main(): # TODO make this async since Ill be calling an async function
         await download_table_from_dap("submissions", submissions_folder)
     if not os.path.exists(courses_folder):
         await download_table_from_dap("courses", courses_folder)
-    # TODO make sure its downloaded? Doesnt jobs alredy do that
     # TODO repeated if statements are dumb and I should probably change it - also, what if out of space or smthn? - add error handling
 
     if not os.path.exists(submissions_csv): # only make csvs if they're not already there
@@ -151,44 +177,45 @@ async def main(): # TODO make this async since Ill be calling an async function
 
     ## either way, we need to load our csv's as dfs
     users_df = pd.read_csv(users_csv)
-    enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[16]) # force column 14 to string and 15 to date
-    submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string"})    # TODO <unset> row is strange, seems user id was cut off - might just be csv display weirdness
+    enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[17]) # force column 14 to string and 15 to date
+    submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string", 40: "string"})    # TODO <unset> row is strange, seems user id was cut off - might just be csv display weirdness
     terms_df = pd.read_csv(enrollment_terms_csv)
     courses_df = pd.read_csv(courses_csv)
 
-    #instructor_name = "Catherine White"
-   # term_name = "DE5W05.19.25"      # TODO add option to not give term name?
-
-
-    instructor_name = "Kennady Brinley"
-    term_name = "DE5W02.24.25" # TODO Print id to check - should be 17895
-
-
-
-    # TODO grab term id
+    ## grab term id & instructor id
     id_matching_name = gather_user_id_from_name(instructor_name, users_df)
-    id_matching_term_name = gather_term_ids_from_term_name(term_name, terms_df)
     if not id_matching_name:
         print("no matching instructors found")
         sys.exit(1)
-    #
-    instructor_id = id_matching_name # TODO assuming only one for now, update
 
+    id_matching_term_name = gather_term_ids_from_term_name(term_name, terms_df)
+    if not id_matching_term_name:
+        print("no matching instructors found")
+        sys.exit(1)
+
+    instructor_id = id_matching_name
+
+    #print("instructor id is", instructor_id, "term id is", id_matching_term_name)
+
+    ## grab a list of the courses that instructor teaches
     courses_they_teach = gather_course_ids_matching_user_id_from_enrollments(instructor_id, enrollments_df)
     if not courses_they_teach:
         print("no matching courses found")
         sys.exit(1)
 
-    # courses_they_teach is not a dataframe, its a list of ids
-    courses_they_teach_from_term = filter_courses_by_term(id_matching_name, courses_they_teach, courses_df)
+    ## filter down that list to only courses that ran for selected term
+    courses_they_teach_from_term = filter_courses_by_term(id_matching_term_name, courses_they_teach, courses_df)
+    #print("they teach", courses_they_teach)
 
+    ## next, get all the submissions associated with the courses in that term filtered list
     submissions_in_courses = pd.DataFrame()
-    #
-    ## merge the dfs for the other courses they teach together
-    for i in range(0, len(courses_they_teach_from_term)):
-        submissions_in_i = grab_submissions_for_course(courses_they_teach[i], submissions_df) # this is a df
-        submissions_in_courses = pd.concat([submissions_in_courses, submissions_in_i], ignore_index=True)
 
+    ## merge the dfs for the all the courses they teach in selected term together
+    for i in range(len(courses_they_teach_from_term)):
+        submissions_in_i = grab_submissions_for_course(courses_they_teach_from_term[i], submissions_df) # this is a df
+        #print(len(submissions_in_i))
+        submissions_in_courses = pd.concat([submissions_in_courses, submissions_in_i], ignore_index=True)
+    # TODO some of my ids have a .0 at the end of them in report.csv - not good - is that elsewhere too? (grader_id is what im looking at rn)
     if submissions_in_courses.empty:
         print("no matching courses found")
     else:
@@ -196,7 +223,14 @@ async def main(): # TODO make this async since Ill be calling an async function
         os.makedirs(result_folder, exist_ok=True)
         result = os.path.join(result_folder, "lisa_test_report.csv")
         submissions_in_courses.to_csv(result, index=False)
+        print("here is preview of result")
         print(submissions_in_courses)
+        # TODO make it create a raw_result.csv and a pretty_result.csv - pretty shouldn't have id's - just names and derived stats like deltas
+        # TODO also go over BRO stuff and see how much of it makes sense - already seeig that its making up fields
+
+        # TODO make pretty csv have choosable columns so they can configure what they want]
+
+        # TODO look at example report hallie sent - want it to look something like that
 
 
 

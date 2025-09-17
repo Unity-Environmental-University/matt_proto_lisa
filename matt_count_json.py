@@ -1,11 +1,12 @@
 import json
 import pandas as pd
 import os
+from datetime import datetime
 
 ## TODO table_downloads -> users, submissions, enrollments, etc
 ## within users -> job blah -> part 0, part 1, etc
 ## makes csv of 2025 records for json in given folder
-def collect_2025_records(folder_path, year_column, output_csv="records_2025.csv", ignored_fields=None):
+def collect_2025_records(folder_path, year_column, output_csv="records_2025.csv", ignored_fields=[], start_date="2024-07-01", ):
     records_in_2025 = []
     total_lines = 0
     recency_count = 0
@@ -21,7 +22,11 @@ def collect_2025_records(folder_path, year_column, output_csv="records_2025.csv"
                     if line.strip():  # skip empty lines
                         total_lines += 1
                         data = json.loads(line)
-                        if data["value"][year_column][:4] == "2025":
+
+                        ## only grab data from start_date or after
+                        json_date = datetime.fromisoformat(data["value"][year_column][:10])
+                        min_date = datetime.fromisoformat(start_date)
+                        if json_date >= min_date:
                             relevant_data = data["value"].copy()
 
                             ## ignore specified fields
@@ -32,7 +37,7 @@ def collect_2025_records(folder_path, year_column, output_csv="records_2025.csv"
                             relevant_data["id"] = data["key"]["id"] # rearrange to front when this is pandas df
                             recency_count += 1
                             records_in_2025.append(relevant_data)
-            # TODO delete the file after it has been loaded - it will soon be a csv
+            # TODO delete the file after it has been loaded - it will soon be a csv - ehh whatever ill leave it in - altho they will need a new snapshot periodically? keep a date and refresh if its been a few days?
 
     # Convert to DataFrame and export
     if records_in_2025:
