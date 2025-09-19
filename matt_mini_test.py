@@ -43,7 +43,7 @@ def gather_course_ids_matching_user_id_from_enrollments(user_id, enrollments_df)
 # takes a course_id and grabs all submissions for it from the submissions table
 # TODO I want this to return a df filtered down to just those relevant submissions
 def grab_submissions_for_course(course_id, submissions_df):
-    filtered_submissions = submissions_df[submissions_df["course_id"] == course_id].copy()
+    filtered_submissions = submissions_df[submissions_df["course_id"] == course_id]
 
     return filtered_submissions
     # TODO theres going to be a lot of courses, combine all filtered dfs into one big one? They're all submissions so should be easy - can do that in main()
@@ -65,12 +65,12 @@ def gather_term_ids_from_term_name(term_name, term_df):
 def filter_courses_by_term(enrollment_term_id, course_ids, courses_df):
     filtered_courses_df = pd.DataFrame()
     for i in range(len(course_ids)):
-        filter_i = courses_df[courses_df["id"] == course_ids[i]].copy()
+        filter_i = courses_df[courses_df["id"] == course_ids[i]]
         filtered_courses_df = pd.concat([filtered_courses_df, filter_i], ignore_index=True)
     # print("here is courses dataframe filtered only by courses they teach")
     # print(filtered_courses_df)
 
-    filtered_courses_etids = filtered_courses_df[filtered_courses_df["enrollment_term_id"] == enrollment_term_id].copy()
+    filtered_courses_etids = filtered_courses_df[filtered_courses_df["enrollment_term_id"] == enrollment_term_id]
     new_courselist = filtered_courses_etids["id"].tolist()
    # print("here is fancy new courselist", new_courselist)
     #print(len(new_courselist))
@@ -90,9 +90,14 @@ def filter_courses_by_term(enrollment_term_id, course_ids, courses_df):
 
     return new_courselist
 
-def make_pretty_csv(base_df, columns_to_add, columns_to_drop, output_csv):
+# def pretty_add_instructor_name(base_df, )
+
+# TODO instead of doing this really complicated thing, why don't I just add everything mid process and let
+# TODO users pop them if they want - with a default pop list provided
+def make_pretty_csv(base_df, df_dict, columns_to_add, columns_to_drop, output_csv): #df_dict will be all my dfs
     pretty_df = base_df.drop(columns_to_drop, axis=1, inplace=False)
-    # TODO turn columns_to_add into a dict? - note there has to be choices on columns to add
+    # TODO build potential_additions as dict "addition_name: functionToAdd" - compare keys with columns_to_add list
+    # columns to drop is simple, just pop them
     # TODO so in my config or whatever have a comment listing all options for columns_to_add and columns_to_drop
 
     ## columns_to_add options
@@ -197,7 +202,7 @@ async def main(): # TODO make this async since Ill be calling an async function
 
     #print("instructor id is", instructor_id, "term id is", id_matching_term_name)
 
-    ## grab a list of the courses that instructor teaches
+    ## grab list of the courses that instructor teaches
     courses_they_teach = gather_course_ids_matching_user_id_from_enrollments(instructor_id, enrollments_df)
     if not courses_they_teach:
         print("no matching courses found")
