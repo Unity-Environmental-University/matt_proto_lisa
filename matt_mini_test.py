@@ -35,8 +35,10 @@ def gather_user_id_from_name(name, users_df):
 def gather_course_ids_matching_user_id_from_enrollments(user_id, enrollments_df):   # make sure theyre a teacher
     mask_user = enrollments_df["user_id"] == user_id
     mask_teacher = enrollments_df["type"] == "TeacherEnrollment"
-    combined_mask = mask_user & mask_teacher
+    mask_active = enrollments_df["workflow_state"] == "active" # TODO check w hallie about this - we only want the course the teacher is active in ya?
+    combined_mask = mask_user & mask_teacher & mask_active
     matching_courses = enrollments_df.loc[combined_mask, "course_id"]
+
 
     return matching_courses.tolist()
 
@@ -44,11 +46,33 @@ def gather_course_ids_matching_user_id_from_enrollments(user_id, enrollments_df)
 # TODO I want this to return a df filtered down to just those relevant submissions
 def grab_submissions_for_course(course_id, submissions_df):
     filtered_submissions = submissions_df[submissions_df["course_id"] == course_id]
+    # TODO add masks to grab only submission
+
 
     return filtered_submissions
     # TODO theres going to be a lot of courses, combine all filtered dfs into one big one? They're all submissions so should be easy - can do that in main()
     # TODO need to make resulting csv have instructor + student name, maybe a grade delta column(that uses cached_due_date with a warning if there was no submitted_at)
 # TODO maybe add a function to average all grade deltas in a dataframe
+
+# takes a list of course ids and returns inactive users in those courses (a list)
+def get_inactive_users(course_id_list, enrollments_df):
+    mask_student = enrollments_df["type"] == "StudentEnrollment"
+    mask_active = enrollments_df["workflow_state"] == "inactive"
+    combined_mask = mask_student & mask_active
+
+    inactive_users = []
+
+    for i in range(len(course_id_list)):
+        course_mask = enrollments_df["course_id"] == course_id_list[i]
+        matching_users = enrollments_df.loc[combined_mask & course_mask, "user_id"].tolist()
+        inactive_users.extend(matching_users)
+
+    return inactive_users
+
+## takes a list of users and removes them from the df its given
+## modifies df in place
+def remove_inactive_users(inactive_user_list, df):
+    df.drop(df[df["user_id"].isin(inactive_user_list)].index, inplace=True)
 
 ## search enrollment_terms using given term_name and return the id(s) for it
 def gather_term_ids_from_term_name(term_name, term_df):
@@ -90,7 +114,18 @@ def filter_courses_by_term(enrollment_term_id, course_ids, courses_df):
 
     return new_courselist
 
-# def pretty_add_instructor_name(base_df, )
+def add_course_names_to_submissions(submissions_df, courses_df):
+    """Add course names to submissions dataframe by merging on course_id"""
+    # Create a mapping of course_id to course name
+    course_names = courses_df[['id', 'name']].rename(columns={'name': 'course_name'})
+
+    # Merge submissions with course names
+    submissions_with_names = submissions_df.merge(course_names, left_on='course_id', right_on='id', how='left', suffixes=('', '_course'))
+
+    # Drop the duplicate id column from the merge
+    submissions_with_names = submissions_with_names.drop('id_course', axis=1)
+
+    return submissions_with_names
 
 # TODO instead of doing this really complicated thing, why don't I just add everything mid process and let
 # TODO users pop them if they want - with a default pop list provided
@@ -202,7 +237,7 @@ async def main(): # TODO make this async since Ill be calling an async function
 
     #print("instructor id is", instructor_id, "term id is", id_matching_term_name)
 
-    ## grab list of the courses that instructor teaches
+    ## grab a list of the courses that instructor teaches
     courses_they_teach = gather_course_ids_matching_user_id_from_enrollments(instructor_id, enrollments_df)
     if not courses_they_teach:
         print("no matching courses found")
@@ -220,16 +255,23 @@ async def main(): # TODO make this async since Ill be calling an async function
         submissions_in_i = grab_submissions_for_course(courses_they_teach_from_term[i], submissions_df) # this is a df
         #print(len(submissions_in_i))
         submissions_in_courses = pd.concat([submissions_in_courses, submissions_in_i], ignore_index=True)
+
+    inactive_users = get_inactive_users(courses_they_teach_from_term, enrollments_df)
+    remove_inactive_users(inactive_users, submissions_in_courses)
+
     # TODO some of my ids have a .0 at the end of them in report.csv - not good - is that elsewhere too? (grader_id is what im looking at rn)
     if submissions_in_courses.empty:
         print("no matching courses found")
     else:
+        # Add course names to the submissions data
+        submissions_with_course_names = add_course_names_to_submissions(submissions_in_courses, courses_df)
+
         result_folder = "resulting_csv"
         os.makedirs(result_folder, exist_ok=True)
         result = os.path.join(result_folder, "lisa_test_report.csv")
-        submissions_in_courses.to_csv(result, index=False)
+        submissions_with_course_names.to_csv(result, index=False)
         print("here is preview of result")
-        print(submissions_in_courses)
+        print(submissions_with_course_names)
         # TODO make it create a raw_result.csv and a pretty_result.csv - pretty shouldn't have id's - just names and derived stats like deltas
         # TODO also go over BRO stuff and see how much of it makes sense - already seeig that its making up fields
 
