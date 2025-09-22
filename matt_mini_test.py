@@ -127,6 +127,185 @@ def add_course_names_to_submissions(submissions_df, courses_df):
 
     return submissions_with_names
 
+def add_instructor_names_to_submissions(submissions_df, enrollments_df, users_df):
+    """Add instructor names to submissions dataframe by finding the teacher for each course"""
+    # Get teacher enrollments only
+    teacher_enrollments = enrollments_df[
+        (enrollments_df['type'] == 'TeacherEnrollment') & 
+        (enrollments_df['workflow_state'] == 'active')
+    ][['course_id', 'user_id']].rename(columns={'user_id': 'instructor_id'})
+    
+    # Get instructor names
+    instructor_names = users_df[['id', 'name']].rename(columns={'name': 'instructor_name', 'id': 'instructor_id'})
+    
+    # First merge to get instructor IDs for each course
+    submissions_with_instructor_ids = submissions_df.merge(teacher_enrollments, on='course_id', how='left')
+    
+    # Then merge to get instructor names
+    submissions_with_instructor_names = submissions_with_instructor_ids.merge(instructor_names, on='instructor_id', how='left')
+    
+    # Drop the instructor_id column as we only need the name
+    submissions_with_instructor_names = submissions_with_instructor_names.drop('instructor_id', axis=1)
+    
+    return submissions_with_instructor_names
+
+def add_student_names_to_submissions(submissions_df, users_df):
+    """Add student names to submissions dataframe by merging on user_id"""
+    # Create a mapping of user_id to student name
+    student_names = users_df[['id', 'name']].rename(columns={'name': 'student_name'})
+    
+    # Merge submissions with student names
+    submissions_with_student_names = submissions_df.merge(student_names, left_on='user_id', right_on='id', how='left', suffixes=('', '_student'))
+    
+    # Drop the duplicate id column from the merge
+    submissions_with_student_names = submissions_with_student_names.drop('id_student', axis=1)
+    
+    return submissions_with_student_names
+
+def add_term_names_to_submissions(submissions_df, courses_df, terms_df):
+    """Add term names to submissions dataframe by linking through courses to enrollment terms"""
+    # Get course to term mapping
+    course_terms = courses_df[['id', 'enrollment_term_id']].rename(columns={'id': 'course_id'})
+    
+    # Get term names
+    term_names = terms_df[['id', 'name']].rename(columns={'name': 'term_name', 'id': 'enrollment_term_id'})
+    
+    # First merge to get term IDs for each submission
+    submissions_with_term_ids = submissions_df.merge(course_terms, on='course_id', how='left')
+    
+    # Then merge to get term names
+    submissions_with_term_names = submissions_with_term_ids.merge(term_names, on='enrollment_term_id', how='left')
+    
+    # Drop the enrollment_term_id column as we only need the name
+    submissions_with_term_names = submissions_with_term_names.drop('enrollment_term_id', axis=1)
+    
+    return submissions_with_term_names
+
+def add_grade_delta_to_submissions(submissions_df):
+    """
+    Add grade_delta column to submissions dataframe.
+    Calculates the difference between graded_at and cached_due_date.
+    If graded_at is null, grade_delta will also be null.
+    
+    Args:
+        submissions_df: DataFrame with cached_due_date and graded_at columns
+    
+    Returns:
+        DataFrame with added grade_delta column (in days)
+    """
+    df = submissions_df.copy()
+    
+    # Convert date columns to datetime if they aren't already
+    df['cached_due_date'] = pd.to_datetime(df['cached_due_date'], errors='coerce')
+    df['graded_at'] = pd.to_datetime(df['graded_at'], errors='coerce')
+    
+    # Calculate grade delta: graded_at - cached_due_date
+    # This will be positive if graded after due date, negative if graded before
+    df['due_date_vs_graded_date(days)'] = (df['graded_at'] - df['cached_due_date']).dt.days
+    
+    return df
+
+def add_compliance_status_to_submissions(submissions_df):
+    """
+    Add out_of_compliance column to submissions dataframe.
+    True if graded_at is 72 hours or more after cached_due_date, False otherwise.
+    Null if graded_at is null.
+    
+    Args:
+        submissions_df: DataFrame with cached_due_date and graded_at columns
+    
+    Returns:
+        DataFrame with added out_of_compliance column
+    """
+    df = submissions_df.copy()
+    
+    # Ensure date columns are datetime (should already be done by add_grade_delta_to_submissions)
+    df['cached_due_date'] = pd.to_datetime(df['cached_due_date'], errors='coerce')
+    df['graded_at'] = pd.to_datetime(df['graded_at'], errors='coerce')
+    
+    # Calculate if out of compliance (72+ hours = 3+ days after due date)
+    # Will be NaN/null if graded_at is null
+    df['out_of_compliance'] = (df['graded_at'] - df['cached_due_date']).dt.total_seconds() >= (72 * 3600)
+    
+    return df
+
+def reorder_columns_for_readability(submissions_df):
+    """
+    Move the human-readable columns to the front of the dataframe for better readability
+    """
+    df = submissions_df.copy()
+    
+    # Rename id column to submission_id for clarity
+    if 'id' in df.columns:
+        df = df.rename(columns={'id': 'submission_id'})
+    
+    # Define the columns we want at the front (in order)
+    front_columns = [
+        'submission_id',
+        'assignment_id',
+        'student_name',
+        'user_id',
+        'instructor_name',
+        'grader_id',
+        'course_name',
+        'course_id',
+        'term_name',
+        'workflow_state',
+        'cached_due_date',
+        'graded_at',
+        'due_date_vs_graded_date(days)',
+        'out_of_compliance'
+    ]
+    
+    # Get all other columns that aren't in our front list
+    other_columns = [col for col in df.columns if col not in front_columns]
+    
+    # Only include front columns that actually exist in the dataframe
+    existing_front_columns = [col for col in front_columns if col in df.columns]
+    
+    # Reorder: front columns first, then everything else
+    new_column_order = existing_front_columns + other_columns
+    
+    return df[new_column_order]
+
+def create_dean_friendly_dataframe(submissions_df):
+    """
+    Create a clean dataframe suitable for dean/administrative review by dropping
+    technical columns and keeping only essential information
+    """
+    df = submissions_df.copy()
+    
+    # Columns to drop - technical IDs and detailed Canvas metadata
+    # Note: keeping submission_id (renamed from id) and removing other technical IDs
+    columns_to_drop = [ # grader ID
+        'body',  # submission body text
+        'url',  # submission URL
+        'turnitin_data',  # turnitin details
+        'quiz_submission_id',  # quiz submission ID
+        'submission_comments_count',  # comment count
+        'grade_matches_current_submission',  # technical flag
+        'posted_at',  # posting timestamp
+        'grading_period_id',  # grading period ID
+        'preview_url',  # preview URL
+        'group_id',
+        'media_object_id',
+        'media_comment_type',
+        'attachment_id',
+        'lti_user_id',
+        'processed',
+        'attachment_ids',
+        'cached_quiz_lti',
+        'anonymous_id',
+    ]
+    
+    # Only drop columns that actually exist in the dataframe
+    columns_to_drop = [col for col in columns_to_drop if col in df.columns]
+    
+    # Drop the unnecessary columns
+    dean_df = df.drop(columns=columns_to_drop)
+    
+    return dean_df
+
 # TODO instead of doing this really complicated thing, why don't I just add everything mid process and let
 # TODO users pop them if they want - with a default pop list provided
 def make_pretty_csv(base_df, df_dict, columns_to_add, columns_to_drop, output_csv): #df_dict will be all my dfs
@@ -263,15 +442,35 @@ async def main(): # TODO make this async since Ill be calling an async function
     if submissions_in_courses.empty:
         print("no matching courses found")
     else:
-        # Add course names to the submissions data
-        submissions_with_course_names = add_course_names_to_submissions(submissions_in_courses, courses_df)
+        # Add all name columns, grade delta, and compliance status to the submissions data
+        submissions_enhanced = add_course_names_to_submissions(submissions_in_courses, courses_df)
+        submissions_enhanced = add_instructor_names_to_submissions(submissions_enhanced, enrollments_df, users_df)
+        submissions_enhanced = add_student_names_to_submissions(submissions_enhanced, users_df)
+        submissions_enhanced = add_term_names_to_submissions(submissions_enhanced, courses_df, terms_df)
+        submissions_enhanced = add_grade_delta_to_submissions(submissions_enhanced)
+        submissions_enhanced = add_compliance_status_to_submissions(submissions_enhanced)
+        
+        # Reorder columns for better readability
+        submissions_enhanced = reorder_columns_for_readability(submissions_enhanced)
+        
+        # Create dean-friendly version
+        dean_report = create_dean_friendly_dataframe(submissions_enhanced)
 
         result_folder = "resulting_csv"
         os.makedirs(result_folder, exist_ok=True)
-        result = os.path.join(result_folder, "lisa_test_report.csv")
-        submissions_with_course_names.to_csv(result, index=False)
-        print("here is preview of result")
-        print(submissions_with_course_names)
+        
+        # Save full detailed report
+        full_result = os.path.join(result_folder, "lisa_test_report_full.csv")
+        submissions_enhanced.to_csv(full_result, index=False)
+        
+        # Save dean-friendly report
+        dean_result = os.path.join(result_folder, "lisa_test_report_dean.csv")
+        dean_report.to_csv(dean_result, index=False)
+        
+        print("Full report saved to:", full_result)
+        print("Dean-friendly report saved to:", dean_result)
+        print("\nPreview of full report:")
+        print(submissions_enhanced)
         # TODO make it create a raw_result.csv and a pretty_result.csv - pretty shouldn't have id's - just names and derived stats like deltas
         # TODO also go over BRO stuff and see how much of it makes sense - already seeig that its making up fields
 
