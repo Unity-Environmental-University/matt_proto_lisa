@@ -181,6 +181,55 @@ def add_term_names_to_submissions(submissions_df, courses_df, terms_df):
     
     return submissions_with_term_names
 
+def add_assignment_names_to_submissions(submissions_df, assignments_df):
+    """Add assignment names to submissions dataframe by merging on assignment_id"""
+    # Create a mapping of assignment_id to assignment name
+    assignment_names = assignments_df[['id', 'title']].rename(columns={'title': 'assignment_name'})
+    
+    # Merge submissions with assignment names
+    submissions_with_assignment_names = submissions_df.merge(assignment_names, left_on='assignment_id', right_on='id', how='left', suffixes=('', '_assignment'))
+    
+    # Drop the duplicate id column from the merge
+    submissions_with_assignment_names = submissions_with_assignment_names.drop('id_assignment', axis=1)
+    
+    return submissions_with_assignment_names
+
+def add_week_column_to_submissions(submissions_df):
+    """
+    Add week column to submissions dataframe by inferring week number from assignment_name.
+    Looks for patterns like 'Week 1', 'Week 2', 'W1', 'W2', etc. in the assignment title.
+    """
+    import re
+    
+    df = submissions_df.copy()
+    
+    def extract_week(assignment_name):
+        if pd.isna(assignment_name) or assignment_name is None:
+            return None
+        
+        assignment_str = str(assignment_name).lower()
+        
+        # Look for various week patterns
+        patterns = [
+            r'week\s*(\d+)',        # "week 1", "week1", "Week 2", etc.
+            r'w\s*(\d+)',           # "w1", "w 2", "W3", etc.
+            r'wk\s*(\d+)',          # "wk1", "wk 2", "Wk3", etc.
+            r'(\d+)\s*week',        # "1 week", "2week", etc. (reverse order)
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, assignment_str)
+            if match:
+                week_num = int(match.group(1))
+                return f"Week {week_num}"
+        
+        return None
+    
+    # Apply the extraction function to create the week column
+    df['week'] = df['assignment_name'].apply(extract_week)
+    
+    return df
+
 def add_grade_delta_to_submissions(submissions_df):
     """
     Add grade_delta column to submissions dataframe.
@@ -242,6 +291,8 @@ def reorder_columns_for_readability(submissions_df):
     # Define the columns we want at the front (in order)
     front_columns = [
         'submission_id',
+        'week',
+        'assignment_name',
         'assignment_id',
         'student_name',
         'user_id',
@@ -359,12 +410,14 @@ async def main(): # TODO make this async since Ill be calling an async function
     enrollment_terms_folder = os.path.join(download_folder, "enrollment_terms")
     submissions_folder = os.path.join(download_folder, "submissions")
     courses_folder = os.path.join(download_folder, "courses")
+    assignments_folder = os.path.join(download_folder, "assignments")
 
     users_csv = os.path.join(csv_folder, "users.csv")
     enrollments_csv = os.path.join(csv_folder, "enrollments.csv")
     enrollment_terms_csv = os.path.join(csv_folder, "enrollment_terms.csv")
     submissions_csv = os.path.join(csv_folder, "submissions.csv")
     courses_csv = os.path.join(csv_folder, "courses.csv")
+    assignments_csv = os.path.join(csv_folder, "assignments.csv")
 
     os.makedirs(download_folder, exist_ok=True)
     os.makedirs(csv_folder, exist_ok=True)
@@ -379,6 +432,8 @@ async def main(): # TODO make this async since Ill be calling an async function
         await download_table_from_dap("submissions", submissions_folder)
     if not os.path.exists(courses_folder):
         await download_table_from_dap("courses", courses_folder)
+    if not os.path.exists(assignments_folder):
+        await download_table_from_dap("assignments", assignments_folder)
     # TODO repeated if statements are dumb and I should probably change it - also, what if out of space or smthn? - add error handling
 
     if not os.path.exists(submissions_csv): # only make csvs if they're not already there
@@ -391,6 +446,8 @@ async def main(): # TODO make this async since Ill be calling an async function
         collect_2025_records(enrollment_terms_folder, "updated_at", enrollment_terms_csv)
     if not os.path.exists(courses_csv): # TODO add ability to skip fields
         collect_2025_records(courses_folder, "updated_at", courses_csv, ["syllabus_body"])
+    if not os.path.exists(assignments_csv):
+        collect_2025_records(assignments_folder, "created_at", assignments_csv)
     # TODO what can I do with incremental update from DAP? Can that update a job
     # TODO I already have?
 
@@ -400,6 +457,7 @@ async def main(): # TODO make this async since Ill be calling an async function
     submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string", 40: "string"})    # TODO <unset> row is strange, seems user id was cut off - might just be csv display weirdness
     terms_df = pd.read_csv(enrollment_terms_csv)
     courses_df = pd.read_csv(courses_csv)
+    assignments_df = pd.read_csv(assignments_csv)
 
     ## grab term id & instructor id
     id_matching_name = gather_user_id_from_name(instructor_name, users_df)
@@ -442,11 +500,13 @@ async def main(): # TODO make this async since Ill be calling an async function
     if submissions_in_courses.empty:
         print("no matching courses found")
     else:
-        # Add all name columns, grade delta, and compliance status to the submissions data
+        # Add all name columns, week, grade delta, and compliance status to the submissions data
         submissions_enhanced = add_course_names_to_submissions(submissions_in_courses, courses_df)
         submissions_enhanced = add_instructor_names_to_submissions(submissions_enhanced, enrollments_df, users_df)
         submissions_enhanced = add_student_names_to_submissions(submissions_enhanced, users_df)
         submissions_enhanced = add_term_names_to_submissions(submissions_enhanced, courses_df, terms_df)
+        submissions_enhanced = add_assignment_names_to_submissions(submissions_enhanced, assignments_df)
+        submissions_enhanced = add_week_column_to_submissions(submissions_enhanced)
         submissions_enhanced = add_grade_delta_to_submissions(submissions_enhanced)
         submissions_enhanced = add_compliance_status_to_submissions(submissions_enhanced)
         
