@@ -6,64 +6,104 @@ made to a specified teacher for a specified term. This sub-section is modified w
 information as possible. The list below describes the meaning of each column. Column names marked with a * do not appear
 in the short version of the csv.
 
-submission_id: primary key for canvas submissions - the id of the submission  
-week: (derived by me) - The week of the course the assignment the submission is for appears in - derived from beginning of assignment_name. Null if not in assignment_name  
-assignment_name: the name of the assignment the submission is for - taken from title in the assignments data  
-assignment_id: the id of the associated assignment  
-student_name: taken from name from the users table - the name of the student (firstname lastname)  
-user_id: id of the user in canvas. Taken from users table  
-instructor_name: taken from name from the users table- the name of the instructor (firstname lastname)  
-grader_id: id of user that graded the submission. Positive for real users, negative for auto-graders. Null if ungraded. Seems to also be null for automatic 0's  
+submission_id: primary key for canvas submissions - the id of the submission
+
+week: (derived by me) - The week of the course the assignment the submission is for appears in - derived from beginning of assignment_name. Null if not in assignment_name
+
+assignment_name: the name of the assignment the submission is for - taken from title in the assignments data
+
+assignment_id: the id of the associated assignment
+
+student_name: taken from name from the users table - the name of the student (firstname lastname)
+
+user_id: id of the user in canvas. Taken from users table
+
+instructor_name: taken from name from the users table- the name of the instructor (firstname lastname)
+
+grader_id: id of user that graded the submission. Positive for real users, negative for auto-graders. Null if ungraded. Seems to also be null for automatic 0's
+
 course_name: the full name of the course. Taken from name in the courses table
-course_id: the id of the associated assignments course  
-term_name: the name of the term the associated course runs in. Taken from name in the enrollment_terms table  
+
+course_id: the id of the associated assignments course
+
+term_name: the name of the term the associated course runs in. Taken from name in the enrollment_terms table
+
 workflow_state: life-cycle state for the submission. Can be graded/submitted/unsubmitted (from what I've seen)
-submitted_at: The timestamp when the assignment was submitted. May be missing for submitted assignments that were submitted on paper, through external tools, or  
-              no submission required. If student failed to submit an assignment by due date, assignment can be graded by instructor (will be missing submitted_at)  
+
+submitted_at: The timestamp when the assignment was submitted. May be missing for submitted assignments that were submitted on paper, through external tools, or no submission required. If student failed to submit an assignment by due date, assignment can be graded by instructor (will be missing submitted_at)
+
 cached_due_date: the due date for the associated assignment
-graded_at: timestamp for when the submission was graded  
-due_date_vs_graded_date(days): (derived by me) - the number of days between a due date and a graded_at. Positive means graded after due date, negative means graded before  
-out_of_compliance: (derived by me) - True when graded at is >= 72 hours after cached_due_date. False otherwise. Note this does not account for when a student missed  
-                    the due date and submitted late  
-created_at: timestamp of when the submission was created. I believe the submission itself is created quite early so this can't be used instead of submitted_at  
-updated_at: timestamp of when the submission was last updated  
-posted_at: date the submission was posted to the student / NULL if not posted  
-score: the raw score  
-grade: letter grade mapped from the score by the grading scheme  
-grade_matches_current_submission: A boolean flag which is false if the student has re-submitted since the submission was last graded. Valid only when a score has  
-                                  been assigned to a submission. This is set to false if a student makes a new submission to an already graded assignment.  
-                                  This is done to indicate that the current grade given by the teacher is not for the most recent submission by the student.  
-                                  It is set to true if a score has been given and there is no new submission. Defaults to NULL.  
-published_score: the raw score (identical to score)  
-published_grade: Valid only for a graded submission. The values are strings that reflect the grading type used. For example, a scoring method of points will  
-                 show 4 if given a 4 out of 5, and a scoring method of letter grade will show B for the same score (assuming a grading scale where 80-90% is a B). 
-                 Defaults to NULL. Note all the scores/grades seem to be the same - I would assume we don't have canvas set up to convert to letter grades or points  
-anonymous_id: A unique short ID identifying this submission without reference to the owning user.  
-cached_quiz_lti: True if the associated assignment is a Quizzes.Next assignment. False otherwise  
-redo_request: True if the assignment has been reassigned to the student for resubmission. False otherwise  
-attempt: The number of attempts made including this one.  
-quiz_submission_id: Foreign key to the quiz_submissions dataset (if submission_type is online_quiz). If this field contains a value it means that the assignment is a quiz  
-submission_type: the type of submission. Examples: online_text_entry, online_upload, discussion_topic, online_quiz, etc  
-graded_anonymously: Denotes how the grading has been performed. Possible values are graded_anonymously and not_graded_anonymously  
-body: The content of the submission, if it was submitted directly in a text field.  
-attachment_ids: A comma-delimited string representing the IDs of attachments belonging to this submission. 
-processed: Valid only when there is a file/attachment associated with the submission. By default, this attribute is set to false when making the assignment submission.  
-           When a submission has a file/attachment associated with it, upon submitting the assignment a snapshot is saved and its value is set to true. Defaults to NULL  
-excused: Whether the assignment is excused. Excused assignments have no impact on a user's grade.  
-lti_user_id: The LTI context ID of the submitter.  
-submission_comments_count: A count of the number of comments made on this submission.  
-last_comment_at: The date of the last non-draft comment on this submission by a user other than the submitter.  
-turnitin_data: A YAML string representing plagiarism data associated with this submission.  
-url: URL content for the submission.  
-points_deducted: The amount of points automatically deducted from the score by the missing/late policy for a late or missing assignment. Note I don't believe we use the  
-                 late policy feature in the canvas gradebook to automatically deduct points so this will often be NULL.  
-student_entered_score: A "what-if" score that the student has entered for this submission.  
-late_policy_status: The status of the submission in relation to the late policy. Only reflects statuses manually applied by a grader. Can be late, missing, none, or NULL.  
-seconds_late_override: For late submissions, the amount of time (in seconds) the submission is late by.  
-attachment_id: The ID of an attachment belonging to this submission if submission_type is online_url. Generally superseded by attachment_ids.  
-media_comment_id: For media comments, the ID of the media object associated with this comment, as a string.  
-media_comment_type: For media comments, the type of the media object associated with this comment.  
-media_object_id: The ID of the associated MediaObject.  
+
+graded_at: timestamp for when the submission was graded
+
+due_date_vs_graded_date(days): (derived by me) - the number of days between a due date and a graded_at. Positive means graded after due date, negative means graded before
+
+out_of_compliance: (derived by me) - True when graded at is >= 72 hours after cached_due_date. False otherwise. Note this does not account for when a student missed the due date and submitted late
+
+created_at: timestamp of when the submission was created. I believe the submission itself is created quite early so this can't be used instead of submitted_at
+
+updated_at: timestamp of when the submission was last updated
+
+posted_at: date the submission was posted to the student / NULL if not posted
+
+score: the raw score
+
+grade: letter grade mapped from the score by the grading scheme
+
+grade_matches_current_submission: A boolean flag which is false if the student has re-submitted since the submission was last graded. Valid only when a score has been assigned to a submission. This is set to false if a student makes a new submission to an already graded assignment. This is done to indicate that the current grade given by the teacher is not for the most recent submission by the student. It is set to true if a score has been given and there is no new submission. Defaults to NULL.
+
+published_score: the raw score (identical to score)
+
+published_grade: Valid only for a graded submission. The values are strings that reflect the grading type used. For example, a scoring method of points will show 4 if given a 4 out of 5, and a scoring method of letter grade will show B for the same score (assuming a grading scale where 80-90% is a B). Defaults to NULL. Note all the scores/grades seem to be the same - I would assume we don't have canvas set up to convert to letter grades or points
+
+anonymous_id: A unique short ID identifying this submission without reference to the owning user.
+
+cached_quiz_lti: True if the associated assignment is a Quizzes.Next assignment. False otherwise
+
+redo_request: True if the assignment has been reassigned to the student for resubmission. False otherwise
+
+attempt: The number of attempts made including this one.
+
+quiz_submission_id: Foreign key to the quiz_submissions dataset (if submission_type is online_quiz). If this field contains a value it means that the assignment is a quiz
+
+submission_type: the type of submission. Examples: online_text_entry, online_upload, discussion_topic, online_quiz, etc
+
+graded_anonymously: Denotes how the grading has been performed. Possible values are graded_anonymously and not_graded_anonymously
+
+body: The content of the submission, if it was submitted directly in a text field.
+
+attachment_ids: A comma-delimited string representing the IDs of attachments belonging to this submission.
+
+processed: Valid only when there is a file/attachment associated with the submission. By default, this attribute is set to false when making the assignment submission. When a submission has a file/attachment associated with it, upon submitting the assignment a snapshot is saved and its value is set to true. Defaults to NULL
+
+excused: Whether the assignment is excused. Excused assignments have no impact on a user's grade.
+
+lti_user_id: The LTI context ID of the submitter.
+
+submission_comments_count: A count of the number of comments made on this submission.
+
+last_comment_at: The date of the last non-draft comment on this submission by a user other than the submitter.
+
+turnitin_data: A YAML string representing plagiarism data associated with this submission.
+
+url: URL content for the submission.
+
+points_deducted: The amount of points automatically deducted from the score by the missing/late policy for a late or missing assignment. Note I don't believe we use the late policy feature in the canvas gradebook to automatically deduct points so this will often be NULL.
+                
+student_entered_score: A "what-if" score that the student has entered for this submission.
+
+late_policy_status: The status of the submission in relation to the late policy. Only reflects statuses manually applied by a grader. Can be late, missing, none, or NULL.
+
+seconds_late_override: For late submissions, the amount of time (in seconds) the submission is late by.
+
+attachment_id: The ID of an attachment belonging to this submission if submission_type is online_url. Generally superseded by attachment_ids.
+
+media_comment_id: For media comments, the ID of the media object associated with this comment, as a string.
+
+media_comment_type: For media comments, the type of the media object associated with this comment.
+
+media_object_id: The ID of the associated MediaObject.
+
 group_id: Foreign key to the groups table. For when students are put into groups with peers to work on assignments together using the groups feature
 
 
