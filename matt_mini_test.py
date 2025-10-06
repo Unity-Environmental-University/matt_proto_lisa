@@ -358,34 +358,6 @@ def create_dean_friendly_dataframe(submissions_df):
     
     return dean_df
 
-# TODO instead of doing this really complicated thing, why don't I just add everything mid process and let
-# TODO users pop them if they want - with a default pop list provided
-def make_pretty_csv(base_df, df_dict, columns_to_add, columns_to_drop, output_csv): #df_dict will be all my dfs
-    pretty_df = base_df.drop(columns_to_drop, axis=1, inplace=False)
-    # TODO build potential_additions as dict "addition_name: functionToAdd" - compare keys with columns_to_add list
-    # columns to drop is simple, just pop them
-    # TODO so in my config or whatever have a comment listing all options for columns_to_add and columns_to_drop
-
-    ## columns_to_add options
-    # instructor_name (given / grab from users during id lookup)
-    # student_name (id is in submissions/base_df -> grab from users (TODO write func to grab name using id from users?)
-    # term_name (given / grab from enrollment_terms during id lookup or write func)
-    # course_name (course_id is in submissions, I can just grab it and lookup name in courses) TODO issue - this func might need access to all dfs? Unless I grab all potentially needed info beforehand
-    # ? enrollment status is workflow in enrollments
-
-
-    # for column in columns_to_add
-    #   add_column(df, column) -> need to make function with a bunch of ifs now to do that? TODO no make a dict with each possible addition and its assoced add func
-
-
-# users = gather_user_ids_from_name("Richard Gray") # TODO assuming this has 1 entry, might want to force it to
-# print(users)
-# their_courses = gather_course_ids_matching_user_id_from_enrollments(12791306)
-# print(their_courses)
-# their_assoc_submissions = grab_submissions_for_course(their_courses[0])
-# print(their_assoc_submissions.to_string())
-# print(len(submissions_df))
-
 async def main(): # TODO make this async since Ill be calling an async function
     if len(sys.argv) != 3:
         print("""Usage: python3 matt_mini_test.py 'Instructor Name' 'TermName' """)
@@ -440,104 +412,106 @@ async def main(): # TODO make this async since Ill be calling an async function
     if not os.path.exists(submissions_csv): # only make csvs if they're not already there
         collect_2025_records(submissions_folder, "created_at", submissions_csv)
     if not os.path.exists(users_csv):
-        collect_2025_records(users_folder, "updated_at", users_csv, start_date="1990-07-01")
+        collect_2025_records(users_folder, "updated_at", users_csv)
     if not os.path.exists(enrollments_csv):
         collect_2025_records(enrollments_folder, "updated_at", enrollments_csv)
     if not os.path.exists(enrollment_terms_csv):
         collect_2025_records(enrollment_terms_folder, "updated_at", enrollment_terms_csv)
     if not os.path.exists(courses_csv): # TODO add ability to skip fields
-        collect_2025_records(courses_folder, "updated_at", courses_csv, ["syllabus_body"], start_date="1990-07-01")
+        collect_2025_records(courses_folder, "updated_at", courses_csv, ["syllabus_body"])
     if not os.path.exists(assignments_csv):
         collect_2025_records(assignments_folder, "created_at", assignments_csv)
     # TODO what can I do with incremental update from DAP? Can that update a job
     # TODO I already have?
 
-    ## either way, we need to load our csv's as dfs
-    # users_df = pd.read_csv(users_csv)
-    # enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[17]) # force column 14 to string and 15 to date
-    # submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string", 40: "string"})    # TODO <unset> row is strange, seems user id was cut off - might just be csv display weirdness
-    # terms_df = pd.read_csv(enrollment_terms_csv)
-    # courses_df = pd.read_csv(courses_csv)
-    # assignments_df = pd.read_csv(assignments_csv)
-    #
-    # ## grab term id & instructor id
-    # id_matching_name = gather_user_id_from_name(instructor_name, users_df)
-    # if not id_matching_name:
-    #     print("no matching instructors found")
-    #     sys.exit(1)
-    #
-    # id_matching_term_name = gather_term_ids_from_term_name(term_name, terms_df)
-    # if not id_matching_term_name:
-    #     print("no matching instructors found")
-    #     sys.exit(1)
-    #
-    # instructor_id = id_matching_name
-    #
-    # #print("instructor id is", instructor_id, "term id is", id_matching_term_name)
-    #
-    # ## grab a list of the courses that instructor teaches
-    # courses_they_teach = gather_course_ids_matching_user_id_from_enrollments(instructor_id, enrollments_df)
-    # if not courses_they_teach:
-    #     print("no matching courses found")
-    #     sys.exit(1)
-    #
-    # ## filter down that list to only courses that ran for selected term
-    # courses_they_teach_from_term = filter_courses_by_term(id_matching_term_name, courses_they_teach, courses_df)
-    # #print("they teach", courses_they_teach)
-    #
-    # ## next, get all the submissions associated with the courses in that term filtered list
-    # submissions_in_courses = pd.DataFrame()
-    #
-    # ## merge the dfs for the all the courses they teach in selected term together
-    # for i in range(len(courses_they_teach_from_term)):
-    #     submissions_in_i = grab_submissions_for_course(courses_they_teach_from_term[i], submissions_df) # this is a df
-    #     #print(len(submissions_in_i))
-    #     submissions_in_courses = pd.concat([submissions_in_courses, submissions_in_i], ignore_index=True)
-    #
-    # inactive_users = get_inactive_users(courses_they_teach_from_term, enrollments_df)
-    # remove_inactive_users(inactive_users, submissions_in_courses)
-    #
-    # # TODO some of my ids have a .0 at the end of them in report.csv - not good - is that elsewhere too? (grader_id is what im looking at rn)
-    # if submissions_in_courses.empty:
-    #     print("no matching courses found")
-    # else:
-    #     # Add all name columns, week, grade delta, and compliance status to the submissions data
-    #     submissions_enhanced = add_course_names_to_submissions(submissions_in_courses, courses_df)
-    #     submissions_enhanced = add_instructor_names_to_submissions(submissions_enhanced, enrollments_df, users_df)
-    #     submissions_enhanced = add_student_names_to_submissions(submissions_enhanced, users_df)
-    #     submissions_enhanced = add_term_names_to_submissions(submissions_enhanced, courses_df, terms_df)
-    #     submissions_enhanced = add_assignment_names_to_submissions(submissions_enhanced, assignments_df)
-    #     submissions_enhanced = add_week_column_to_submissions(submissions_enhanced)
-    #     submissions_enhanced = add_grade_delta_to_submissions(submissions_enhanced)
-    #     submissions_enhanced = add_compliance_status_to_submissions(submissions_enhanced)
-    #
-    #     # Reorder columns for better readability
-    #     submissions_enhanced = reorder_columns_for_readability(submissions_enhanced)
-    #
-    #     # Create dean-friendly version
-    #     dean_report = create_dean_friendly_dataframe(submissions_enhanced)
-    #
-    #     result_folder = "resulting_csv"
-    #     os.makedirs(result_folder, exist_ok=True)
-    #
-    #     # Save full detailed report
-    #     full_result = os.path.join(result_folder, "lisa_test_report_full.csv")
-    #     submissions_enhanced.to_csv(full_result, index=False)
-    #
-    #     # Save dean-friendly report
-    #     dean_result = os.path.join(result_folder, "lisa_test_report_dean.csv")
-    #     dean_report.to_csv(dean_result, index=False)
-    #
-    #     print("Full report saved to:", full_result)
-    #     print("Dean-friendly report saved to:", dean_result)
-    #     print("\nPreview of full report:")
-    #     print(submissions_enhanced)
-    #     # TODO make it create a raw_result.csv and a pretty_result.csv - pretty shouldn't have id's - just names and derived stats like deltas
-    #     # TODO also go over BRO stuff and see how much of it makes sense - already seeig that its making up fields
-    #
-    #     # TODO make pretty csv have choosable columns so they can configure what they want]
-    #
-    #     # TODO look at example report hallie sent - want it to look something like that
+    # either way, we need to load our csv's as dfs
+    users_df = pd.read_csv(users_csv)
+    enrollments_df = pd.read_csv(enrollments_csv, dtype={15: "string"}, parse_dates=[17]) # force column 14 to string and 15 to date
+    submissions_df = pd.read_csv(submissions_csv, dtype={38: "string", 39: "string", 40: "string"})    # TODO <unset> row is strange, seems user id was cut off - might just be csv display weirdness
+    terms_df = pd.read_csv(enrollment_terms_csv)
+    courses_df = pd.read_csv(courses_csv)
+    assignments_df = pd.read_csv(assignments_csv)
+    
+    ## grab term id & instructor id
+    id_matching_name = gather_user_id_from_name(instructor_name, users_df)
+    if not id_matching_name:
+        print("no matching instructors found")
+        sys.exit(1)
+    
+    id_matching_term_name = gather_term_ids_from_term_name(term_name, terms_df)
+    if not id_matching_term_name:
+        print("no matching instructors found")
+        sys.exit(1)
+    
+    instructor_id = id_matching_name
+    
+    #print("instructor id is", instructor_id, "term id is", id_matching_term_name)
+    
+    ## grab a list of the courses that instructor teaches
+    courses_they_teach = gather_course_ids_matching_user_id_from_enrollments(instructor_id, enrollments_df)
+    if not courses_they_teach:
+        print("no matching courses found")
+        sys.exit(1)
+    
+    ## filter down that list to only courses that ran for selected term
+    courses_they_teach_from_term = filter_courses_by_term(id_matching_term_name, courses_they_teach, courses_df)
+    #print("they teach", courses_they_teach)
+    
+    ## next, get all the submissions associated with the courses in that term filtered list
+    submissions_in_courses = pd.DataFrame()
+    
+    ## merge the dfs for the all the courses they teach in selected term together
+    for i in range(len(courses_they_teach_from_term)):
+        submissions_in_i = grab_submissions_for_course(courses_they_teach_from_term[i], submissions_df) # this is a df
+        #print(len(submissions_in_i))
+        submissions_in_courses = pd.concat([submissions_in_courses, submissions_in_i], ignore_index=True)
+    
+    inactive_users = get_inactive_users(courses_they_teach_from_term, enrollments_df)
+    remove_inactive_users(inactive_users, submissions_in_courses)
+    
+    # TODO some of my ids have a .0 at the end of them in report.csv - not good - is that elsewhere too? (grader_id is what im looking at rn)
+    if submissions_in_courses.empty:
+        print("no matching courses found")
+    else:
+        # Add all name columns, week, grade delta, and compliance status to the submissions data
+        submissions_enhanced = add_course_names_to_submissions(submissions_in_courses, courses_df)
+        submissions_enhanced = add_instructor_names_to_submissions(submissions_enhanced, enrollments_df, users_df)
+        submissions_enhanced = add_student_names_to_submissions(submissions_enhanced, users_df)
+        submissions_enhanced = add_term_names_to_submissions(submissions_enhanced, courses_df, terms_df)
+        submissions_enhanced = add_assignment_names_to_submissions(submissions_enhanced, assignments_df)
+        submissions_enhanced = add_week_column_to_submissions(submissions_enhanced)
+        submissions_enhanced = add_grade_delta_to_submissions(submissions_enhanced)
+        submissions_enhanced = add_compliance_status_to_submissions(submissions_enhanced)
+    
+        # Reorder columns for better readability
+        submissions_enhanced = reorder_columns_for_readability(submissions_enhanced)
+    
+        # Create dean-friendly version
+        dean_report = create_dean_friendly_dataframe(submissions_enhanced)
+    
+        result_folder = "resulting_csv"
+        os.makedirs(result_folder, exist_ok=True)
+    
+        # Save full detailed report
+        full_result = os.path.join(result_folder, "lisa_test_report_full.csv")
+        submissions_enhanced.to_csv(full_result, index=False)
+    
+        # Save dean-friendly report
+        dean_result = os.path.join(result_folder, "lisa_test_report_dean.csv")
+        dean_report.to_csv(dean_result, index=False)
+    
+        print("Full report saved to:", full_result)
+        print("Dean-friendly report saved to:", dean_result)
+        print("\nPreview of full report:")
+        print(submissions_enhanced)
+        # TODO make it create a raw_result.csv and a pretty_result.csv - pretty shouldn't have id's - just names and derived stats like deltas
+        # TODO also go over BRO stuff and see how much of it makes sense - already seeig that its making up fields
+    
+        # TODO make pretty csv have choosable columns so they can configure what they want]
+    
+        # TODO look at example report hallie sent - want it to look something like that
+
+        # TODO might even be able to port this by writing to sqlite db instead? How does that work with a hosted website?
 
 
 
